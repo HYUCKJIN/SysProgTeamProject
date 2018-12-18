@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <pthread.h>
+#include <ctype.h>
 
 typedef struct word* wordptr;
 typedef struct word{
@@ -29,13 +30,17 @@ int menu();
 void play();
 void movestr();
 wordptr random_input();
-void answ_input();
+void *answ_input();
+void cmplist(char []);
 
+pthread_mutex_t counter_lock = PTHREAD_MUTEX_INITIALIZER;
 wordptr Word_Arr;
 int done=0;
 wordptr list[300];
 int listpoint=0;
-
+char noansw[30]="nthansw";
+int score=0;
+char scorebuf[3]={0};
 
 int main(){
         int choice;
@@ -146,8 +151,8 @@ int menu(){
                 
 }
 void play(){
-        int delay=2000000, cnt=1;
-	char name[30];
+        int delay=1000000, cnt=1;
+	char name[30],ch;
 	pthread_t t1;
 	srand(time(NULL));
         initscr();
@@ -155,18 +160,23 @@ void play(){
         noecho();
         clear();
 	
-//	pthread_create(&t1, NULL, answ_input, NULL);
+	pthread_create(&t1, NULL, answ_input, NULL);
         while(done==0){
 		movestr();
-		usleep(delay-(cnt/5)*(delay/20));
-		cnt++;
+		if(cnt>47)
+			usleep(200000);
+		else{
+			usleep(delay-(cnt/6)*(delay/10));
+			cnt++;
+		}
 	}
-//	pthread_join(t1, NULL);
+	pthread_join(t1, NULL);
 
 	clear();
-	mvaddstr(LINES/2-1, COLS/2-1, "Game Over");
+	mvaddstr(LINES/2-1, COLS/2-1, "Game over");
 	mvaddstr(LINES/2, COLS/2-5, "Enter your name");
 	refresh();
+	getch();
 	scanf("%s", name);
         endwin();
 
@@ -176,26 +186,92 @@ void movestr()
 {
 	int i;
         list[listpoint++]=random_input();
-        
+        int yn;
         for (i=0;i<listpoint;i++){
-                if(list[i]->row==LINES-1)
+		yn=strcmp(list[i]->str, noansw);	
+                if(list[i]->row==LINES-4&&yn!=0)
                         done=1;
 		else{
-			move(list[i]->row-1, list[i]->col);
-                        addstr("                      ");
-                	move(list[i]->row, list[i]->col);
-                	addstr(list[i]->str);
+			pthread_mutex_lock(&counter_lock);
+			if(yn!=0 || list[i]->row<LINES-4)
+				mvaddstr(list[i]->row-1, list[i]->col, "                      ");
+			if(yn!=0)
+                		mvaddstr(list[i]->row, list[i]->col, list[i]->str);
+				move(LINES-1, 0);
+                	refresh();
+			pthread_mutex_unlock(&counter_lock);
                 	list[i]->row+=1;
 		}
 	}
-	refresh();
 }
-/*
-void answ_input(){
-	mvaddstr(LINES-2
 
+void *answ_input(){
+	int i, answptr=0;
+	char answ[30]={0}, c;
 
-}*/
+	pthread_mutex_lock(&counter_lock);
+        for(i=0; i<COLS-1; i++)
+                mvaddstr(LINES-3, i, "-");
+	refresh();
+	pthread_mutex_unlock(&counter_lock);
+
+	while(done==0){
+		pthread_mutex_lock(&counter_lock);
+		mvaddstr(LINES-2, 0, "ANSWER :");
+                mvaddstr(LINES-2, COLS-16,"SCORE : ");
+		sprintf(scorebuf, "%d", score);
+		addstr(scorebuf);
+                refresh();
+		pthread_mutex_unlock(&counter_lock);
+		c=getch();
+		pthread_mutex_lock(&counter_lock);
+		if(c=='\n'){
+			answ[answptr]='\0';
+			cmplist(answ);
+			for(i=0;i<50;i++)
+				answ[i]='\0';
+			answptr=0;
+			mvaddstr(LINES-2, 0, "ANSWER :                 ");
+			mvaddstr(LINES-2, COLS-16,"SCORE : ");
+			sprintf(scorebuf, "%d", score);
+                	addstr(scorebuf);
+			refresh();
+		}
+		else if(c==127&&answptr>0){
+			answ[--answptr]='\0';
+			mvaddstr(LINES-2, 0, "ANSWER : ");
+			addstr(answ);
+			addstr(" ");
+                        mvaddstr(LINES-2, COLS-16,"SCORE : ");
+			sprintf(scorebuf, "%d", score);
+                	addstr(scorebuf);
+			refresh();
+		}
+		else{
+			answ[answptr++]=c;	
+			mvaddstr(LINES-2, 0, "ANSWER : ");
+                        addstr(answ);
+                        mvaddstr(LINES-2, COLS-16,"SCORE : ");
+			sprintf(scorebuf, "%d", score);
+                	addstr(scorebuf);
+                        refresh();
+		}	
+		move(LINES-1, 0);
+		refresh();
+		pthread_mutex_unlock(&counter_lock);
+	}
+}
+
+void cmplist(char answ[]){
+	int i;
+	for(i=0;i<listpoint;i++){
+		if(strcmp(answ,list[i]->str)==0){
+			strcpy(list[i]->str, noansw);
+			score++;
+			break;
+		}
+	}
+}
 void create(){
         FILE *fp = fopen("WordData.txt","r");
         int size = 1000;
