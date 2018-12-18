@@ -1,7 +1,8 @@
-/* author       : 김현유
- * date         : 2018-11-22 19:14
- * description  : 처음 화면, 메뉴 선택 화면에 대한 코드입니다
+/* 
+ * project	: 산성비 게임
+ * description  : fork, pthread.h, curese.h 함수를 이용해 구현하였습니다.
  */
+
 #include <unistd.h>
 #include <termios.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#include <pthread.h>
 
 typedef struct word* wordptr;
 typedef struct word{
@@ -21,54 +23,73 @@ typedef struct word{
         int col;
 }word;
 
-
+void create();
 void firstscreen();
 int menu();
 void play();
-void on_alarm(int signum);
-void create();
+void movestr();
 wordptr random_input();
+void answ_input();
+
 wordptr Word_Arr;
-int set_ticker( int n_msecs );
 int done=0;
-wordptr list[100];
-int i, listpoint=0;
+wordptr list[300];
+int listpoint=0;
 
 
 int main(){
         int choice;
+	int loop=1;
+	int pid;
 
         firstscreen();
-        choice = menu();        //int 형으로 return 하니 이를 통해 이후 조작 가능
-        switch(choice){
-                case 1:
-                        play();
-                        break;
-                case 2:
-//                        ranking();
-                        break;
-                default:
-                        break;
-        }
+	while(loop){
+        	choice = menu();        //int 형으로 return 하니 이를 통해 이후 조작 가능
+       		if( (pid=fork())==-1){
+			perror("fork");
+			exit(1);
+		}
+		else if(pid==0){
+			switch(choice){
+        		        case 1:
+					play();
+					exit(0);
+					break;
+        		        case 2:
+//      		                ranking();
+					exit(0);
+        		                break;
+        		        default:
+					exit(0);
+        		                break;
+			}
+        	}
+		else{
+			if(choice==3)
+				loop=0;
+			wait(NULL);
+		}
+			
+	}
         return 0;
 }
 
 void firstscreen(){
 
         initscr();
-                clear();
-                move(LINES/2-2, COLS/2-12);
-                addstr("====rainy typing game====");
-		move(LINES/2-1, COLS/2-7);
-                addstr("system programing");
-		move(LINES/2, COLS/2-5);
-                addstr("team project");
-		move(LINES-3 , 0);	
-                addstr("member : Kim hyeonyu, Song yeonwuk, Kim kyeonglae, Hong heokjin");
-		move(LINES-1, 0);
-		standout();
-		addstr("press any key to continue");
-		standend();
+        clear();
+        move(LINES/2-2, COLS/2-12);
+        addstr("====rainy typing game====");
+	move(LINES/2-1, COLS/2-7);
+        addstr("system programing");
+	move(LINES/2, COLS/2-5);
+        addstr("team project");
+	move(LINES-3 , 0);	
+        addstr("member : Kim hyeonyu, Song yeonwuk, Kim kyeonglae, Hong heokjin");
+	move(LINES-1, 0);
+	standout();
+	addstr("press any key to continue");
+	standend();
         refresh();
         getch();
         endwin();
@@ -125,47 +146,56 @@ int menu(){
                 
 }
 void play(){
-        int delay=1000;
-	create();
+        int delay=2000000, cnt=1;
+	char name[30];
+	pthread_t t1;
 	srand(time(NULL));
         initscr();
+	create();
         noecho();
         clear();
+	
+//	pthread_create(&t1, NULL, answ_input, NULL);
+        while(done==0){
+		movestr();
+		usleep(delay-(cnt/5)*(delay/20));
+		cnt++;
+	}
+//	pthread_join(t1, NULL);
 
-        signal(SIGALRM, on_alarm);        /* install alarm handler    */                set_ticker(delay);
-
-        while(!done);
+	clear();
+	mvaddstr(LINES/2-1, COLS/2-1, "Game Over");
+	mvaddstr(LINES/2, COLS/2-5, "Enter your name");
+	refresh();
+	scanf("%s", name);
         endwin();
+
 }
 
-int set_ticker( int n_msecs )
+void movestr()
 {
-        struct itimerval new_timeset;
-        long    n_sec, n_usecs;
-        n_sec = n_msecs / 1000 ;                /* int part*/
-        n_usecs = ( n_msecs % 1000 ) * 1000L ;  /* remainder*/
-
-        new_timeset.it_interval.tv_sec = n_sec;         /* set reload */
-        new_timeset.it_interval.tv_usec = n_usecs;  /* new ticker value */
-        new_timeset.it_value.tv_sec     = n_sec;        /* store this */
-        new_timeset.it_value.tv_usec    = n_usecs;      /* and this */
-
-        return setitimer(ITIMER_REAL, &new_timeset, NULL);
-}
-
-
-void on_alarm(int signum)
-{
+	int i;
         list[listpoint++]=random_input();
-        clear();
+        
         for (i=0;i<listpoint;i++){
-                if(++list[i]->row==(LINES-1))
+                if(list[i]->row==LINES-1)
                         done=1;
-                move(list[i]->row, list[i]->col);
-                addstr(list[i]->str);
-                addstr("WoW");
-        }
+		else{
+			move(list[i]->row-1, list[i]->col);
+                        addstr("                      ");
+                	move(list[i]->row, list[i]->col);
+                	addstr(list[i]->str);
+                	list[i]->row+=1;
+		}
+	}
+	refresh();
 }
+/*
+void answ_input(){
+	mvaddstr(LINES-2
+
+
+}*/
 void create(){
         FILE *fp = fopen("WordData.txt","r");
         int size = 1000;
@@ -178,7 +208,7 @@ void create(){
         for(int i=0; i<size; i++)
         {
                 fscanf(fp, "%s", &temp_Arr->str);
-                random = rand()%30; //떨어지는 위치
+                random = rand()%(COLS-20); //떨어지는 위치
                 temp_Arr->col = random;
                 temp_Arr->row = 0;
                 temp_Arr++;
