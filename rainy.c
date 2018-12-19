@@ -32,6 +32,10 @@ void movestr();
 wordptr random_input();
 void *answ_input();
 void cmplist(char []);
+int readranking(int *, char[][100]);
+void sort(int *, char[][100], int);
+void printrank(int *, char[][100], int);
+void ranking();
 
 pthread_mutex_t counter_lock = PTHREAD_MUTEX_INITIALIZER;
 wordptr Word_Arr;
@@ -61,7 +65,7 @@ int main(){
 					exit(0);
 					break;
         		        case 2:
-//      		                ranking();
+	      		                ranking();
 					exit(0);
         		                break;
         		        default:
@@ -151,15 +155,27 @@ int menu(){
                 
 }
 void play(){
+	FILE *fpout;
         int delay=1000000, cnt=1;
-	char name[30],ch;
+	char name[30],ch[4]={0}, ch2[4]={0};
 	pthread_t t1;
 	srand(time(NULL));
         initscr();
 	create();
         noecho();
         clear();
-	
+
+	cnt=rand()%1000;
+	ch[0]=cnt/100+48;
+	ch[1]=(cnt%100)/10+48;
+	ch[2]=cnt%10+48;
+	ch[3]='\0';
+	cnt=1;
+	mvaddstr(LINES/2-1, COLS/2-10, "Your ID : player");
+	addstr(ch);
+	refresh();
+	sleep(2);
+	clear();
 	pthread_create(&t1, NULL, answ_input, NULL);
         while(done==0){
 		movestr();
@@ -170,16 +186,24 @@ void play(){
 			cnt++;
 		}
 	}
-	pthread_join(t1, NULL);
-
+	pthread_mutex_lock(&counter_lock);
 	clear();
-	mvaddstr(LINES/2-1, COLS/2-1, "Game over");
-	mvaddstr(LINES/2, COLS/2-5, "Enter your name");
-	refresh();
+	mvaddstr(LINES/2-2, COLS/2-5, "Game over");
+	mvaddstr(LINES/2-1, COLS/2-6, "ID : player");
+	addstr(ch);
+	mvaddstr(LINES/2, COLS/2-7,   "SCORE : ");
+	sprintf(ch2, "%d", score);
+	addstr(ch2);
+	standout();
+	mvaddstr(LINES-1, 0, "Press any key");
+	standend();
 	getch();
-	scanf("%s", name);
+	pthread_mutex_unlock(&counter_lock);
         endwin();
-
+	
+	fpout=fopen("ranking.txt", "a");
+	fprintf(fpout, "%d player%s\n", score, ch);
+	score=0;
 }
 
 void movestr()
@@ -301,7 +325,89 @@ wordptr random_input(){
         temp_Arr = Word_Arr;
         for(int i=0; i<random; i++)
                 temp_Arr++;
-        //printf("%d\n", random);
-        //printf("%s %d %d\n", &temp_Arr->str, temp_Arr->row, temp_Arr->col);
         return temp_Arr;
 }
+
+void ranking() {
+        int rank[32];
+        int people;
+        char name[30][100];
+        int i;
+
+        people = readranking(rank, name);
+
+        sort(rank, name, people);
+
+        printrank(rank, name, people);
+}
+
+int readranking(int *rank, char name[][100]) {
+        FILE* fp;
+        int cnt = 0;
+
+        close(0);
+        if((fp = fopen("ranking.txt", "r")) == NULL) {
+                perror("ranking.txt");
+                exit(1);
+        }
+
+        while(!feof(fp)) {
+                fscanf(fp, "%d %s\n", rank + cnt, name[cnt]);
+                cnt++;
+        }
+
+        return cnt;
+}
+
+void sort(int *rank, char name[][100], int cnt) {
+        int i, j, temp;
+        char ntemp[100];
+
+        for(i = 0; i < cnt - 1; i++) {
+                for(j = i + 1; j < cnt; j++) {
+                        if(rank[i] < rank[j]) {
+                                temp = rank[i];
+                                rank[i] = rank[j];
+                                rank[j] = temp;
+                                strcpy(ntemp, name[i]);
+                                strcpy(name[i], name[j]);
+                                strcpy(name[j], ntemp);
+                        }
+                }
+        }
+}
+
+void printrank(int *rank, char name[][100], int cnt) {
+        signal(SIGINT, SIG_IGN);
+        signal(SIGQUIT, SIG_IGN);
+
+        int i;
+        char num[2], temp[32][144];
+        char m = 0;
+
+        initscr();
+        noecho();
+        clear();
+
+        move(LINES/2-4, COLS/2-12);
+        addstr("======ranking======");
+
+        for(i = 0; i < cnt; i++) {
+                sprintf(temp[i], "%d", rank[i]);
+                move(LINES/2-2+i, COLS/2-12);
+                sprintf(num, "%d", i + 1);
+                addstr(num);
+                addstr(". ");
+                addstr(name[i]);
+                addstr(": ");
+                addstr(temp[i]);
+        }
+        move(LINES-1, 0);
+        standout();
+        addstr("This page will be shut down in 5 seconds");
+        standend();
+        refresh();
+        sleep(5);
+        endwin();
+}
+
