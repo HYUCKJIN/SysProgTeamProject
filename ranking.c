@@ -76,9 +76,6 @@ void printrank(int *rank, char name[][100], int cnt) {
 	char num[2], temp[32][144];
 	char m = 0;
 
-	fflush(stdin);
-	fflush(stdout);
-
 	initscr();
 	noecho();
 	clear();
