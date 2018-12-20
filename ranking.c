@@ -30,6 +30,7 @@ int main() { //menu complie -> change main name => print_ranking
 int readranking(int *rank, char name[][100]) {
 	FILE* fp;
 	int cnt = 0;
+	int stdin_copy = dup(0);
 
 	close(0);
 	if((fp = fopen("ranking.txt", "r")) == NULL) {
@@ -41,6 +42,10 @@ int readranking(int *rank, char name[][100]) {
 		fscanf(fp, "%d %s\n", rank + cnt, name[cnt]);
 		cnt++;
 	}
+
+	fclose(fp);
+	dup2(stdin_copy, 0);
+	close(stdin_copy);
 
 	return cnt;
 }
@@ -71,6 +76,9 @@ void printrank(int *rank, char name[][100], int cnt) {
 	char num[2], temp[32][144];
 	char m = 0;
 
+	fflush(stdin);
+	fflush(stdout);
+
 	initscr();
 	noecho();
 	clear();
@@ -96,18 +104,6 @@ void printrank(int *rank, char name[][100], int cnt) {
 	standend();
 	refresh();
 	getch();
-	//m = getch();
-	//while(1) {
-	//	if(m == '\n')
-	//		break;
-	//	standout();
-	//	move(LINES-1, 0);
-	//	addstr("Wrong input. Enter again  ");
-	//	standend();
-	//	refresh();
-	//	m = getch();
-	//}
-	//clear();
-	sleep(1);
+
 	endwin();
 }
